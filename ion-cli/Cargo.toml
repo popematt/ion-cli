@@ -1,0 +1,37 @@
+[package]
+name = "ion-cli"
+version = "0.4.2"
+authors = ["The Ion Team <ion-team@amazon.com>"]
+edition = "2021"
+description = "Command line tool for working with the Ion data format."
+repository = "https://github.com/amzn/ion-cli"
+license = "Apache-2.0"
+categories = ["command-line-utilities", "development-tools", "encoding", "parsing"]
+keywords = ["format", "parse", "encode"]
+
+
+[lib]
+name = "ion_cli_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ion"
+test = true
+bench = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.0.17", features = ["cargo"] }
+colored = "2.0.0"
+ion-rs = "0.14.0"
+memmap = "0.7.0"
+tempfile = "3.2.0"
+ion-schema = "0.6.0"
+
+[dev-dependencies]
+rstest = "~0.10.0"
+assert_cmd = "~1.0.5"
+tempfile = "~3.2.0"
+
