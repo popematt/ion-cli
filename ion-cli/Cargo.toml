@@ -8,13 +8,15 @@ repository = "https://github.com/amzn/ion-cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities", "development-tools", "encoding", "parsing"]
 keywords = ["format", "parse", "encode"]
-
+# We need at least 1.65 for GATs
+# https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html
+rust-version = "1.65"
 
 [lib]
 name = "ion_cli_core"
 path = "src/lib.rs"
 
-[[bin]]
+[main]
 name = "ion"
 test = true
 bench = false
@@ -26,7 +28,7 @@ anyhow = "1.0"
 clap = { version = "4.0.17", features = ["cargo"] }
 colored = "2.0.0"
 ion-rs = "0.14.0"
-memmap = "0.7.0"
+memmap2 = "0.5.8"
 tempfile = "3.2.0"
 ion-schema = "0.6.0"
 

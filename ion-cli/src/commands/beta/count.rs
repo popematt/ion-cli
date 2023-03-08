@@ -1,9 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use ion_rs::*;
-use std::fs::File;
-use std::io::{BufReader};
-use crate::Io;
+use std::io::{self, BufReader};
+
 
 pub fn app() -> Command {
     Command::new("count")
@@ -19,16 +18,15 @@ pub fn app() -> Command {
         )
 }
 
-pub fn run(_command_name: &str, matches: &ArgMatches, io: Io) -> Result<()> {
-    if let Some(input_file_iter) = matches.get_many::<String>("input") {
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    if let Some(input_file_iter) = matches.get_many::<String>("input") {
         for input_file in input_file_iter {
-            let file = File::open(input_file)
+            let file = fs.open(input_file)
                 .with_context(|| format!("Could not open file '{}'", input_file))?;
             let mut reader = ReaderBuilder::new().build(file)?;
             print_top_level_value_count(&mut reader)?;
         }
     } else {
-        let buf_reader = BufReader::new(io.in_);
+        let buf_reader = BufReader::new(in_);
         let mut reader = ReaderBuilder::new().build(buf_reader)?;
         print_top_level_value_count(&mut reader)?;
     };

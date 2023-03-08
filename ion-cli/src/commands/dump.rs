@@ -1,9 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use ion_rs::*;
-use std::fs::File;
-use std::io::{Write, BufReader};
-use crate::Io;
+use std::io::{ self, Write, BufReader};
+use crate::FileSystemWrapper;
 
 pub fn app() -> Command {
     Command::new("dump")
@@ -33,48 +32,57 @@ pub fn app() -> Command {
         )
 }
 
-pub fn run(_command_name: &str, matches: &ArgMatches, io: Io) -> Result<()> {
-    // --format pretty|text|lines|binary
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    // --format pretty|text|lines|binary
     // `clap` validates the specified format and provides a default otherwise.
     let format = matches
         .get_one::<String>("format")
         .expect("`format` did not have a value");
 
     // -o filename
-    let mut output: Box<dyn Write> = if let Some(output_file) = matches.get_one::<String>("output")
+    if let Some(output_file) = matches.get_one::<String>("output")
     {
-        let mut file = File::create(output_file).with_context(|| {
+        let mut file = fs.create(output_file).with_context(|| {
             format!(
                 "could not open file output file '{}' for writing",
                 output_file
             )
         })?;
-        Box::new(file)
-    } else {
-        io.out
-    };
-
-    if let Some(input_file_iter) = matches.get_many::<String>("input") {
-        for input_file in input_file_iter {
-            let file = File::open(input_file)
-                .with_context(|| format!("Could not open file '{}'", input_file))?;
-            let mut reader = ReaderBuilder::new().build(file)?;
+        let mut output = file;
+        if let Some(input_file_iter) = matches.get_many::<String>("input") {
+            for input_file in input_file_iter {
+                let file = fs.open(input_file)
+                    .with_context(|| format!("Could not open file '{}'", input_file))?;
+                let mut reader = ReaderBuilder::new().build(file)?;
+                write_all_in_format(&mut reader, &mut output, format)?;
+            }
+        } else {
+            let mut reader = ReaderBuilder::new().build(BufReader::new(in_))?;
             write_all_in_format(&mut reader, &mut output, format)?;
         }
+        output.flush()?;
     } else {
-        let mut reader = ReaderBuilder::new().build(BufReader::new(io.in_))?;
-        write_all_in_format(&mut reader, &mut output, format)?;
-    }
-
-    output.flush()?;
+        let mut output = out;
+        if let Some(input_file_iter) = matches.get_many::<String>("input") {
+            for input_file in input_file_iter {
+                let file = fs.open(input_file)
+                    .with_context(|| format!("Could not open file '{}'", input_file))?;
+                let mut reader = ReaderBuilder::new().build(file)?;
+                write_all_in_format(&mut reader, &mut output, format)?;
+            }
+        } else {
+            let mut reader = ReaderBuilder::new().build(BufReader::new(in_))?;
+            write_all_in_format(&mut reader, &mut output, format)?;
+        }
+        output.flush()?;
+    };
     Ok(())
 }
 
 /// Constructs the appropriate writer for the given format, then writes all values found in the
 /// Reader to the new Writer.
-fn write_all_in_format(
+fn write_all_in_format<W: Write>(
     reader: &mut Reader,
-    output: &mut Box<dyn Write>,
+    output: &mut W,
     format: &str,
 ) -> IonResult<()> {
     match format {

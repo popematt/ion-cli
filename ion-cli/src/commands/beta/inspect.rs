@@ -1,8 +1,7 @@
 use std::cmp::min;
 use std::fmt::{Display, Write};
-use std::fs::File;
 use std::io;
-use std::io::BufWriter;
+use std::io::{BufWriter};
 use std::ops::Range;
 use std::str::{from_utf8_unchecked, FromStr};
 
@@ -11,8 +10,9 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use colored::Colorize;
 use ion_rs::result::{decoding_error, IonResult};
 use ion_rs::*;
-use memmap::MmapOptions;
-use crate::Io;
+use memmap2::{Mmap, MmapOptions};
+use crate::ReadWrite;
+
 
 const ABOUT: &str =
     "Displays hex-encoded binary Ion alongside its equivalent text for human-friendly debugging.";
@@ -82,8 +82,7 @@ type OutputRef = Box<dyn io::Write>;
 //   is dropped, so we don't need to do that manually.
 
 // This function is invoked by the `inspect` command's parent, `beta`.
-pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> {
-    // --skip-bytes has a default value, so we can unwrap this safely.
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    // --skip-bytes has a default value, so we can unwrap this safely.
     let skip_bytes_arg = matches.get_one::<String>("skip-bytes").unwrap().as_str();
 
     let bytes_to_skip = usize::from_str(skip_bytes_arg)
@@ -106,7 +105,7 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
     // If the user has specified an output file, use it.
     let mut output: OutputRef = if let Some(file_name) = matches.get_one::<String>("output") {
         let output_file =
-            File::create(file_name).with_context(|| format!("Could not open '{}'", file_name))?;
+            fs.create(file_name).with_context(|| format!("Could not open '{}'", file_name))?;
         let buf_writer = BufWriter::new(output_file);
         Box::new(buf_writer)
     } else {
@@ -117,7 +116,7 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
     // Run the inspector on each input file that was specified.
     if let Some(input_file_iter) = matches.get_many::<String>("input") {
         for input_file_name in input_file_iter {
-            let input_file = File::open(input_file_name)
+            let input_file = fs.open(input_file_name)
                 .with_context(|| format!("Could not open '{}'", input_file_name))?;
             inspect_file(
                 input_file_name,
@@ -144,7 +143,7 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
 
         // Pipe the data from STDIN to the temporary file.
         let mut writer = BufWriter::new(input_file);
-        io::copy(&mut io.in_, &mut writer)
+        io::copy(in_, &mut writer)
             .with_context(|| "Failed to copy STDIN to a temp file.")?;
         // Get our file handle back from the BufWriter
         input_file = writer
@@ -165,7 +164,7 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
 // Given a file, try to mmap() it and run the inspector over the resulting byte array.
 fn inspect_file(
     input_file_name: &str,
-    input_file: File,
+    input_file: impl ReadWrite,
     output: &mut OutputRef,
     bytes_to_skip: usize,
     limit_bytes: usize,
@@ -173,7 +172,7 @@ fn inspect_file(
     // mmap involves operating system interactions that inherently place its usage outside of Rust's
     // safety guarantees. If the file is unexpectedly truncated while it's being read, for example,
     // problems could arise.
-    let mmap = unsafe {
+    let mmap: Mmap = unsafe {
         MmapOptions::new()
             .map(&input_file)
             .with_context(|| format!("Could not mmap '{}'", input_file_name))?

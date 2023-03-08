@@ -1,8 +1,9 @@
+use std::io;
 use anyhow::{Context, Result};
 use clap::{Arg, ArgMatches, Command};
 use ion_rs::binary::var_int::VarInt;
 use ion_rs::binary::var_uint::VarUInt;
-use crate::Io;
+use crate::{println_to, print_to};
 
 pub fn app() -> Command {
     Command::new("primitive")
@@ -23,21 +24,7 @@ pub fn app() -> Command {
         )
 }
 
-pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> anyhow::Result<()> {
-    macro_rules! print {
-        ($($arg:tt)*) => {{
-            io.out.write_fmt(format_args!($($arg)*))?;
-        }};
-    }
-    macro_rules! println {
-        () => {
-            io.out.write_fmt(format_args!("\n"))?;
-        };
-        ($($arg:tt)*) => {{
-            io.out.write_fmt(format_args!($($arg)*))?;
-            io.out.write_fmt(format_args!("\n"))?;
-        }};
-    }
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> anyhow::Result<()> {
 
     let mut buffer = Vec::new();
     let value_text = matches.get_one::<String>("value").unwrap().as_str();
@@ -57,19 +44,19 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> anyhow::Res
             );
         }
     }
-    print!("hex: ");
+    print_to!(out, "hex: ");
     for byte in buffer.iter() {
         // We want the hex bytes to align with the binary bytes that will be printed on the next
         // line. Print 6 spaces and a 2-byte hex representation of the byte.
-        print!("      {:0>2x} ", byte);
+        print_to!(out, "      {:0>2x} ", byte);
     }
-    println!();
-    print!("bin: ");
+    println_to!(out);
+    print_to!(out, "bin: ");
     for byte in buffer.iter() {
         // Print the binary representation of each byte
-        print!("{:0>8b} ", byte);
+        print_to!(out, "{:0>8b} ", byte);
     }
-    println!();
+    println_to!(out);
     Ok(())
 }
 

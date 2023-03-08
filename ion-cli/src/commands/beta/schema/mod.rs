@@ -1,10 +1,11 @@
 pub mod load;
 pub mod validate;
 
+use std::io;
 use crate::commands::CommandRunner;
 use anyhow::Result;
 use clap::{ArgMatches, Command};
-use crate::Io;
+
 
 // To add a schema subcommand, add your new command to the `schema_subcommands`
 // and `runner_for_schema_subcommands` functions.
@@ -14,7 +15,7 @@ pub fn schema_subcommands() -> Vec<Command> {
     vec![load::app(), validate::app()]
 }
 
-pub fn runner_for_schema_subcommand(command_name: &str) -> Option<CommandRunner> {
+pub fn runner_for_schema_subcommand<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(command_name: &str) -> Option<CommandRunner<R, W, FS>> {
     let runner = match command_name {
         "load" => load::run,
         "validate" => validate::run,
@@ -24,13 +25,12 @@ pub fn runner_for_schema_subcommand(command_name: &str) -> Option<CommandRunner>
 }
 
 // The functions below are used by the `beta` subcommand when `schema` is invoked.
-pub fn run(_command_name: &str, matches: &ArgMatches, io: Io) -> Result<()> {
-    // We want to evaluate the name of the subcommand that was invoked
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    // We want to evaluate the name of the subcommand that was invoked
     let (command_name, command_args) = matches.subcommand().unwrap();
     if let Some(runner) = runner_for_schema_subcommand(command_name) {
         // If a runner is registered for the given command name, command_args is guaranteed to
         // be defined; we can safely unwrap it.
-        runner(command_name, command_args, io)?;
+        runner(command_name, command_args, in_, out, fs)?;
     } else {
         let message = format!(
             "The requested schema command ('{}') is not supported and clap did not generate an error message.",

@@ -9,11 +9,10 @@ use ion_schema::external::ion_rs::value::writer::ElementWriter;
 use ion_schema::external::ion_rs::IonType;
 use ion_schema::external::ion_rs::{IonResult, TextWriterBuilder};
 use ion_schema::system::SchemaSystem;
-use std::fs;
-use std::io::Write;
+use std::{fs, io};
 use std::path::Path;
 use std::str::from_utf8;
-use crate::Io;
+
 
 const ABOUT: &str = "validates an Ion Value based on given Ion Schema Type";
 
@@ -63,8 +62,7 @@ pub fn app() -> Command {
 }
 
 // This function is invoked by the `load` command's parent `schema`.
-pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> {
-    // Extract the user provided document authorities/ directories
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    // Extract the user provided document authorities/ directories
     let authorities: Vec<&String> = matches.get_many("directories").unwrap().collect();
 
     // Extract schema file provided by user
@@ -127,8 +125,8 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
         writer.step_out()?;
     }
     drop(writer);
-    io.out.write_fmt(format_args!("Validation report:"))?;
-    io.out.write_fmt(format_args!("{}", from_utf8(&output).unwrap()))?;
+    out.write(format!("Validation report:").as_bytes())?;
+    out.write(&*output)?;
     Ok(())
 }
 

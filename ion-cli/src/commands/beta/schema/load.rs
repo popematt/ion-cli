@@ -1,10 +1,10 @@
-use std::io::Write;
+use std::io;
 use anyhow::Result;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use ion_schema::authority::{DocumentAuthority, FileSystemDocumentAuthority};
 use ion_schema::system::SchemaSystem;
 use std::path::Path;
-use crate::Io;
+
 
 const ABOUT: &str = "Loads an Ion Schema file using user provided schema id and returns a result message. Shows an error message if there were any invalid schema syntax found during the load process";
 
@@ -37,8 +37,7 @@ pub fn app() -> Command {
 }
 
 // This function is invoked by the `load` command's parent `schema`.
-pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> {
-    // Extract the user provided document authorities/ directories
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    // Extract the user provided document authorities/ directories
     let authorities: Vec<&String> = matches.get_many("directories").unwrap().collect();
 
     // Extract schema file provided by user
@@ -57,7 +56,7 @@ pub fn run(_command_name: &str, matches: &ArgMatches, mut io: Io) -> Result<()> 
     let mut schema_system = SchemaSystem::new(document_authorities);
 
     // load given schema
-    io.out.write_fmt(format_args!("Schema: {:#?}", schema_system.load_schema(schema_id)?))?;
+    out.write(format!("Schema: {:#?}", schema_system.load_schema(schema_id)?).as_bytes())?;
 
     Ok(())
 }

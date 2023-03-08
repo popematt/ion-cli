@@ -1,109 +1,57 @@
-mod commands;
-
-// pub use crate::commands;
+pub mod commands;
+pub mod fs_wrapper;
 
 use std::io;
+use std::io::{Read, Write};
+use std::path::Path;
 use crate::commands::{built_in_commands, runner_for_built_in_command};
 use anyhow::Result;
-use clap::{Command, crate_authors, crate_version};
+use clap::{ArgMatches, Command, crate_authors, crate_version};
+use crate::fs_wrapper::{FakeFileSystem, FileSystemWrapper, ReadWrite};
 
 const PROGRAM_NAME: &str = "ion";
 
-#[test]
-pub fn test_it() {
-    let mut in_ = "".as_bytes();
-    let mut out: Vec<u8> = Vec::new();
-    let mut err: Vec<u8> = Vec::new();
+#[macro_export]
+macro_rules! print_to {
+        ($out:ident, $($arg:tt)*) => {{
+            $out.write(format!($($arg)*).as_bytes())?;
+        }};
+    }
+#[macro_export]
+macro_rules! println_to {
+        ($out:ident) => {
+            $out.write("\n".as_bytes())?;
+        };
+        ($out:ident, $($arg:tt)*) => {{
+            $out.write(format!($($arg)*).as_bytes())?;
+            $out.write(format!("\n").as_bytes())?;
+        }};
+    }
 
-    let in_out = Io {
-        in_: Box::new(&mut in_),
-        out: Box::new(&mut out),
-        err: Box::new(&mut err),
-    };
-    
-    execute(vec!["ion","dump","--help"], in_out).expect("TODO: panic message");
+
+#[test]
+pub fn test_lib() {
+    let mut in_ = "{a:1, b:2}[".as_bytes();
+    let mut out: Vec<u8> = Vec::new();
+
+    let mut fake_fs = fs_wrapper::FakeFileSystem::new();
+
+    let result = execute(|app| app.get_matches_from(vec!["ion","dump"]), &mut in_.clone(), &mut out, &mut fake_fs);
+
+    if let Err(err) = result {
+        println!("Err: {}", err)
+    }
 
     println!("In: {}", String::from_utf8(in_.to_vec()).unwrap());
     println!("Out: {}", String::from_utf8(out).unwrap());
-    println!("Err: {}", String::from_utf8(err).unwrap());
-}
-
-pub struct Io<'a> {
-    in_: Box<&'a mut dyn io::Read>,
-    out: Box<&'a mut dyn io::Write>,
-    err: Box<&'a mut dyn io::Write>,
-}
-
-pub struct Io2<'a> {
-    in_: &'a mut dyn io::Read,
-    out: &'a mut dyn io::Write,
-    err: &'a mut dyn io::Write,
-}
-
-fn foo2(io: &Io2) {
-    io.out.write_fmt(format_args!("foo")).expect("");
-
 }
 
 
-pub fn execute(cmd: Vec<&str>, in_out: Io) -> Result<()> {
-    
-    let mut app = create_app();
+pub fn execute<'a, ArgFn: FnOnce(Command) -> ArgMatches, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(arg_fn: ArgFn, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {
 
-    let args = app.get_matches_from(cmd);
-    let (command_name, command_args) = args.subcommand().unwrap();
-
-    if let Some(runner) = runner_for_built_in_command(command_name) {
-        // If a runner is registered for the given command name, command_args is guaranteed to
-        // be defined.
-        runner(command_name, command_args, in_out)?;
-    } else {
-        let message = format!(
-            "The requested command ('{}') is not supported and clap did not generate an error message.",
-            command_name
-        );
-        unreachable!("{}", message);
-    }
-    Ok(())
-}
-
-pub fn main() -> Result<()> {
-
-    let mut in_ = io::stdin().lock();
-    let mut out = io::stdout().lock();
-    let mut err = io::stderr().lock();
-
-    let mut in_: Box<&mut dyn io::Read> = Box::new(&mut in_);
-    let mut out: Box<&mut dyn io::Write> = Box::new(&mut out);
-    let mut err: Box<&mut dyn io::Write> = Box::new(&mut err);
-
-
-    let in_out = Io {
-        in_,
-        out,
-        err,
-    };
-
-    let app = create_app();
-
-    let args = app.get_matches();
-    let (command_name, command_args) = args.subcommand().unwrap();
-
-    if let Some(runner) = runner_for_built_in_command(command_name) {
-        // If a runner is registered for the given command name, command_args is guaranteed to
-        // be defined.
-        runner(command_name, command_args, in_out)?;
-    } else {
-        let message = format!(
-            "The requested command ('{}') is not supported and clap did not generate an error message.",
-            command_name
-        );
-        unreachable!("{}", message);
-    }
-    Ok(())
-}
-
-fn create_app() -> Command {
+    let mut fake_fs = FakeFileSystem::new();
+    let mut fake_file = fake_fs.create(&"foo")?;
+    fake_file.write("abc".as_bytes())?;
 
     let mut app = Command::new(PROGRAM_NAME)
         .version(crate_version!())
@@ -114,5 +62,19 @@ fn create_app() -> Command {
         app = app.subcommand(command);
     }
 
-    app
+    let args = (arg_fn)(app);
+    let (command_name, command_args) = args.subcommand().unwrap();
+
+    if let Some(runner) = runner_for_built_in_command(command_name) {
+        // If a runner is registered for the given command name, command_args is guaranteed to
+        // be defined.
+        runner(command_name, command_args, in_, out, fs)?;
+    } else {
+        let message = format!(
+            "The requested command ('{}') is not supported and clap did not generate an error message.",
+            command_name
+        );
+        unreachable!("{}", message);
+    }
+    Ok(())
 }

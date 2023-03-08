@@ -3,10 +3,11 @@ pub mod inspect;
 pub mod primitive;
 pub mod schema;
 
+use std::io;
 use crate::commands::CommandRunner;
 use anyhow::Result;
 use clap::{ArgMatches, Command};
-use crate::Io;
+
 
 // To add a beta subcommand, add your new command to the `beta_subcommands`
 // and `runner_for_beta_subcommands` functions.
@@ -21,7 +22,7 @@ pub fn beta_subcommands() -> Vec<Command> {
     ]
 }
 
-pub fn runner_for_beta_subcommand(command_name: &str) -> Option<CommandRunner> {
+pub fn runner_for_beta_subcommand<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(command_name: &str) -> Option<CommandRunner<'a, R, W, FS>> {
     let runner = match command_name {
         "count" => count::run,
         "inspect" => inspect::run,
@@ -33,14 +34,13 @@ pub fn runner_for_beta_subcommand(command_name: &str) -> Option<CommandRunner> {
 }
 
 // The functions below are used by the top-level `ion` command when `beta` is invoked.
-pub fn run(_command_name: &str, matches: &ArgMatches, io: Io) -> Result<()> {
-    //     ^-- At this level of dispatch, this command will always be the text `beta`.
+pub fn run<'a, R: io::Read, W: io::Write, FS: crate::FileSystemWrapper<'a>>(_command_name: &str, matches: &ArgMatches, in_: &mut R, out: &mut W, fs: &mut FS) -> Result<()> {    //     ^-- At this level of dispatch, this command will always be the text `beta`.
     // We want to evaluate the name of the subcommand that was invoked --v
     let (command_name, command_args) = matches.subcommand().unwrap();
     if let Some(runner) = runner_for_beta_subcommand(command_name) {
         // If a runner is registered for the given command name, command_args is guaranteed to
         // be defined; we can safely unwrap it.
-        runner(command_name, command_args, io)?;
+        runner(command_name, command_args, in_, out, fs)?;
     } else {
         let message = format!(
             "The requested beta command ('{}') is not supported and clap did not generate an error message.",
