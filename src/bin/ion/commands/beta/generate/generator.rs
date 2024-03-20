@@ -29,7 +29,7 @@ impl<'a> CodeGenerator<'a, RustLanguage> {
         Self {
             output,
             anonymous_type_counter: 0,
-            tera: Tera::new("src/bin/ion/commands/beta/generate/templates/rust/*.templ").unwrap(),
+            tera: Tera::new(&*format!("{}/src/bin/ion/commands/beta/generate/templates/rust/*.templ", env!("CARGO_MANIFEST_DIR"))).unwrap(),
             phantom: PhantomData,
         }
     }
@@ -74,7 +74,7 @@ impl<'a> CodeGenerator<'a, JavaLanguage> {
         Self {
             output,
             anonymous_type_counter: 0,
-            tera: Tera::new("src/bin/ion/commands/beta/generate/templates/java/*.templ").unwrap(),
+            tera: Tera::new(&*format!("{}/src/bin/ion/commands/beta/generate/templates/java/*.templ", env!("CARGO_MANIFEST_DIR"))).unwrap(),
             phantom: PhantomData,
         }
     }

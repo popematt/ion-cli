@@ -1,0 +1,16 @@
+[workspace]
+# Empty workspace to keep it separate from the `ion-cli` project
+
+[package]
+name = "codegen-test-project-rust"
+version = "0.1.0"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rstest = "~0.17.0"
+assert_cmd = "~1.0.5"
+tempfile = "~3.5.0"
+ion-rs = {version = "1.0.0-rc.2", features = ["experimental"]}
