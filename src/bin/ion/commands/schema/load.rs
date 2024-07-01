@@ -8,6 +8,10 @@ use std::path::Path;
 pub struct LoadCommand;
 
 impl IonCliCommand for LoadCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "load"
     }

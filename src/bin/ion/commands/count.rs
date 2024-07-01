@@ -7,6 +7,10 @@ use crate::commands::{CommandIo, IonCliCommand, WithIonCliArgument};
 pub struct CountCommand;
 
 impl IonCliCommand for CountCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "count"
     }

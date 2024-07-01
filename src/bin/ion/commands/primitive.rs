@@ -6,6 +6,13 @@ use ion_rs::v1_0::{VarInt, VarUInt};
 pub struct PrimitiveCommand;
 
 impl IonCliCommand for PrimitiveCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+    fn is_porcelain(&self) -> bool {
+        true
+    }
+
     fn name(&self) -> &'static str {
         "primitive"
     }

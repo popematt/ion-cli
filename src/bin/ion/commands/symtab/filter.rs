@@ -10,6 +10,10 @@ use crate::output::CommandOutput;
 pub struct SymtabFilterCommand;
 
 impl IonCliCommand for SymtabFilterCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "filter"
     }

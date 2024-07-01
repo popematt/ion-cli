@@ -13,6 +13,13 @@ use crate::output::CommandOutput;
 pub struct ToJsonCommand;
 
 impl IonCliCommand for ToJsonCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+    fn is_porcelain(&self) -> bool {
+        true
+    }
+
     fn name(&self) -> &'static str {
         "json"
     }

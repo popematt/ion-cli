@@ -16,6 +16,10 @@ use std::str::from_utf8;
 pub struct ValidateCommand;
 
 impl IonCliCommand for ValidateCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "validate"
     }
@@ -25,7 +29,36 @@ impl IonCliCommand for ValidateCommand {
     }
 
     fn configure_args(&self, command: Command) -> Command {
+        // --authority -A <DIR> (optional, appendable)
+        // Mutually exclusive:
+        //   --id (requires -A) <SCHEMA_ID>
+        //   --schema-file -f <FILE>
+        //   --version <X.Y>
+        //   --schema-text
+        // type <STRING> (type reference—inline type or type name)
+
+        // --slurp-lines -- all lines are treated as one input
+        // --split-lines -- all lines are treated as separate inputs
+        // --split -- all values are treated as separate inputs
+        // --as-document -- each input is treated as a document
+        // --fail-on-invalid -F -- return non-zero exist code if any input is invalid
+
+        // --output
+
         command
+            .arg(
+                Arg::new("authority")
+                    .long("authority")
+                    .short('A')
+                    .required(false)
+                    .action(ArgAction::Append)
+                    .value_name("DIR")
+                    .help(
+                        "The root(s) of the file system authority(s). \
+                        Authorities are only required if you need to import a type from another \
+                        schema file or if you are loading a schema using the --id option."
+                    )
+            )
             .arg(
                 // Input ion file can be specified by the "-i" or "--input" flags.
                 Arg::new("input")

@@ -7,6 +7,10 @@ use crate::commands::{IonCliCommand, WithIonCliArgument};
 pub struct FromJsonCommand;
 
 impl IonCliCommand for FromJsonCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "json"
     }

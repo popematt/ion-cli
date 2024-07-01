@@ -18,6 +18,10 @@ use std::path::{Path, PathBuf};
 pub struct GenerateCommand;
 
 impl IonCliCommand for GenerateCommand {
+    fn is_stable(&self) -> bool {
+        false
+    }
+
     fn name(&self) -> &'static str {
         "generate"
     }
